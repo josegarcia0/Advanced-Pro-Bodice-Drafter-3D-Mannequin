@@ -1,3 +1,4 @@
+<img width="512" height="512" alt="image" src="https://github.com/user-attachments/assets/31569a2e-2575-4c43-9632-8035ed97faf5" />
 # Advanced Pro Bodice Drafter & 3D Mannequin
 
 A web-based professional bodice pattern drafting tool that generates a customized **2D sewing pattern** and **3D mannequin representation** from body measurements.
