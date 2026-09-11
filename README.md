@@ -118,28 +118,6 @@ Depending on the implementation, measurements can determine:
 
 The resulting geometry is rendered in the application's visualization system.
 
-
-
-## 🚀 Getting Started
-
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/YOUR-USERNAME/advanced-pro-bodice-drafter.git
-```
-
-### 2. Enter the project directory
-
-```bash
-cd advanced-pro-bodice-drafter
-```
-
-### 3. Run the application
-
-If the project is a static web application, open `index.html` in a browser.
-
-For development, a local server such as VS Code Live Server can also be used.
-
 ## 📝 How to Use
 
 1. Open the application.
@@ -207,13 +185,6 @@ Potential technologies used by the project include:
 - Three.js
 - PDF generation libraries
 
-Update this section to reflect the exact technologies used by the project.
-
-## 📄 License
-
-This project is available under the terms of the license included in this repository.
-
-## 👗 Project
 
 **Advanced Pro Bodice Drafter & 3D Mannequin**
 
