@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Creador de Patrones y Maniquí 3D - Pro</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js">
+/* ===== RESPONSIVE 3D RESIZE FIX ===== */
+window.addEventListener('resize', () => {
+  if (!tRenderer || !tCamera) return;
+
+  const container = document.getElementById('three-canvas-container');
+  const width = container.clientWidth || window.innerWidth;
+  const height = container.clientHeight || window.innerHeight * 0.75;
+
+  tRenderer.setSize(width, height);
+  tCamera.aspect = width / height;
+  tCamera.updateProjectionMatrix();
+});
+
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Space+Grotesk:wght@400;600&display=swap');
+
+:root {
+  --ink: #1e222b; --paper: #fcfbfa; --cream: #f4f1ea; --rust: #a94424;
+  --muted: #8c8576; --line-grid: #e2ded5; --blue: #2a52be;
+  --c-back: #2b5cb3; --c-front: #c44d25; --c-dart: #d62828; --c-vista: #2ca02c;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Space Grotesk', sans-serif; background: var(--paper); color: var(--ink); min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; }
+
+header { background: var(--cream); padding: 15px 25px; border-bottom: 1px solid var(--line-grid); display: flex; justify-content: space-between; align-items: center; }
+header h1 { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.5px; }
+.lang-selector button { background: var(--paper); border: 1px solid var(--muted); padding: 5px 12px; cursor: pointer; border-radius: 4px; font-family: inherit; font-weight: 600; }
+
+main { display: flex; flex: 1; min-height: 0; position: relative; }
+
+#sidebar { width: 350px; background: var(--cream); border-right: 1px solid var(--line-grid); padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; z-index: 20; }
+.section-title { font-size: 0.85rem; text-transform: uppercase; font-weight: 600; color: var(--rust); margin-top: 5px; letter-spacing: 0.5px; }
+.input-group { display: flex; flex-direction: column; gap: 3px; }
+.input-group label { font-size: 0.82rem; color: var(--ink); display: flex; justify-content: space-between; font-weight: 500; }
+.input-group label span { color: var(--muted); font-size: 0.72rem; }
+.input-group input { padding: 7px; border: 1px solid var(--line-grid); background: var(--paper); border-radius: 4px; font-family: 'Courier Prime', monospace; font-size: 0.9rem; }
+
+.btn-primary { background: var(--ink); color: var(--paper); border: none; padding: 12px; font-weight: 600; border-radius: 4px; cursor: pointer; transition: 0.2s; font-family: inherit; }
+.btn-primary:hover { background: var(--rust); }
+
+#workspace { flex: 1; display: flex; flex-direction: column; background: #eef0f3; position: relative; min-width: 0; }
+#controls-bar { padding: 10px 20px; border-bottom: 1px solid var(--line-grid); display: flex; gap: 8px; background: var(--paper); z-index: 10; flex-wrap: wrap; }
+.btn-sec { background: var(--paper); border: 1px solid var(--line-grid); padding: 6px 12px; font-size: 0.82rem; border-radius: 4px; cursor: pointer; font-family: inherit; font-weight: 500; }
+.btn-sec.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.btn-print { border-color: var(--blue); color: var(--blue); font-weight: 600; margin-left: auto; }
+.btn-print:hover { background: var(--blue); color: white; }
+
+#canvas-container { flex: 1; position: relative; overflow: auto; padding: 30px; display: flex; justify-content: center; align-items: flex-start; }
+#canvas-area { background: white; box-shadow: 0 4px 25px rgba(0,0,0,0.06); position: relative; display: block; }
+#three-canvas-container { width: 100%; height: 100%; position: absolute; top:0; left:0; background: #1a1c20; display: none; overflow: hidden; }
+
+/* 3D UI Overlay Toolbar */
+.v3d-controls {
+  position: absolute; top: 15px; right: 15px; display: flex; gap: 6px;
+  background: rgba(22, 24, 28, 0.9); padding: 8px 12px; border-radius: 6px;
+  border: 1px solid #333; align-items: center; z-index: 100;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+.v3d-controls span { font-size: 0.7rem; color: #ccc; text-transform: uppercase; letter-spacing: 0.05em; margin-right: 5px; }
+.v3d-btn { background: transparent; color: #aaa; border: 1px solid #444; padding: 4px 10px; font-family: inherit; font-size: 0.75rem; cursor: pointer; border-radius: 3px; transition: 0.15s; }
+.v3d-btn:hover { color: #fff; border-color: var(--rust); }
+.v3d-btn.active { background: var(--rust); color: white; border-color: var(--rust); }
+.v3d-action { background: #2a2d33; color: #fff; border: 1px solid #555; padding: 4px 10px; font-family: inherit; font-size: 0.75rem; cursor: pointer; border-radius: 3px; transition: 0.15s; }
+.v3d-action:hover { background: var(--blue); border-color: var(--blue); }
+
+#calc-summary { background: var(--cream); border-top: 1px solid var(--line-grid); padding: 12px 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; z-index: 10; }
+.calc-box { border: 1px dashed var(--muted); padding: 8px; border-radius: 4px; background: white; }
+.calc-box div:first-child { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; font-weight: 600; }
+.calc-box div:last-child { font-size: 0.95rem; font-weight: bold; font-family: 'Courier Prime', monospace; color: var(--blue); margin-top: 2px; }
+
+/* Print Styles */
+@media print {
+  html, body { height: auto !important; overflow: visible !important; background: white !important; }
+  header, #sidebar, #controls-bar, #calc-summary { display: none !important; }
+  main { display: block !important; position: static !important; height: auto !important; width: auto !important; }
+  #workspace, #canvas-container { display: block !important; position: static !important; overflow: visible !important; width: auto !important; height: auto !important; margin: 0 !important; padding: 0 !important; }
+  #canvas-area { display: block !important; position: static !important; box-shadow: none !important; background: transparent !important; margin: 0 !important; padding: 0 !important; width: auto !important; height: auto !important; }
+  #three-canvas-container { display: none !important; }
+  
+  .print-page {
+    display: block !important; width: 21.59cm !important; height: 27.94cm !important;
+    page-break-after: always !important; page-break-inside: avoid !important;
+    clear: both !important; position: relative !important; overflow: hidden !important;
+    background: white !important; border: none !important; margin: 0 !important;
+    padding: 0 !important; box-shadow: none !important;
+  }
+  .print-page:last-child { page-break-after: auto !important; }
+  .print-page svg { width: 21.59cm !important; height: 27.94cm !important; display: block !important; }
+}
+
+.print-page-preview { width: 21.59cm; height: 27.94cm; border: 1px dashed var(--muted); margin-bottom: 25px; position: relative; background: white; box-shadow: 0 4px 15px rgba(0,0,0,0.08); display: block; }
+
+/* ===== MOBILE / RESPONSIVE FIXES ===== */
+@media (max-width: 900px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  main {
+    flex-direction: column;
+    height: auto;
+  }
+
+  #sidebar {
+    width: 100%;
+    max-width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--line-grid);
+    padding: 14px;
+  }
+
+  #workspace {
+    width: 100%;
+    min-height: 70vh;
+  }
+
+  #controls-bar {
+    padding: 8px;
+    gap: 6px;
+    justify-content: center;
+  }
+
+  #controls-bar .btn-sec,
+  #controls-bar .btn-print {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 140px;
+  }
+
+  #canvas-container {
+    padding: 10px;
+    align-items: center;
+    justify-content: flex-start;
+    overflow: auto;
+  }
+
+  #canvas-area {
+    max-width: 100%;
+    overflow: auto;
+  }
+
+  /* IMPORTANT FIX FOR 3D VIEW */
+  #three-canvas-container {
+    position: relative !important;
+    width: 100% !important;
+    height: 75vh !important;
+    min-height: 500px;
+    display: flex;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
+  #three-canvas-container canvas {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+  }
+
+  .v3d-controls {
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    width: auto;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px;
+  }
+
+  .v3d-btn,
+  .v3d-action {
+    flex: 1 1 auto;
+    min-width: 60px;
+    font-size: 0.72rem;
+    padding: 6px 8px;
+  }
+
+  .print-page-preview {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 8.5 / 11;
+  }
+
+  #calc-summary {
+    grid-template-columns: repeat(2, 1fr);
+    padding: 10px;
+  }
+
+  header {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+
+  header h1 {
+    font-size: 1rem;
+  }
+}
+
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="txt-title">Patrones Base y Maniquí 3D</h1>
+  <div class="lang-selector"><button id="btn-lang" onclick="toggleLang()">EN / ES</button></div>
+</header>
+
+<main>
+  <div id="sidebar">
+    <h2 class="section-title" id="txt-sec1">1. Contornos (cm)</h2>
+    <div class="input-group"><label id="lbl-ub">Pecho Superior <span>Por encima del pecho</span></label><input type="number" id="m-ub" value="88" step="0.5"></div>
+    <div class="input-group"><label id="lbl-b">Pecho (Busto) <span>Por la línea del pezón</span></label><input type="number" id="m-b" value="92" step="0.5"></div>
+    <div class="input-group"><label id="lbl-und">Bajo Busto <span>Debajo del pecho</span></label><input type="number" id="m-und" value="76" step="0.5"></div>
+    <div class="input-group"><label id="lbl-w">Cintura <span>Parte más estrecha</span></label><input type="number" id="m-w" value="70" step="0.5"></div>
+    <div class="input-group"><label id="lbl-h">Cadera <span>Parte más ancha (glúteos)</span></label><input type="number" id="m-h" value="96" step="0.5"></div>
+
+    <h2 class="section-title" id="txt-sec2">2. Largos y Proporciones (cm)</h2>
+    <div class="input-group"><label id="lbl-ntw">Largo de Espalda <span>De nuca a cintura</span></label><input type="number" id="m-ntw" value="41" step="0.5"></div>
+    <div class="input-group"><label id="lbl-ad">Profundidad de Sisa <span>Del hombro a la axila</span></label><input type="number" id="m-ad" value="21" step="0.5"></div>
+    <div class="input-group"><label id="lbl-wth">Largo de Cadera <span>Cintura a cadera</span></label><input type="number" id="m-wth" value="20" step="0.5"></div>
+    <div class="input-group"><label id="lbl-bw">Ancho de Espalda <span>Axila a axila (atrás)</span></label><input type="number" id="m-bw" value="35" step="0.5"></div>
+    <div class="input-group"><label id="lbl-sh">Largo de Hombro <span>Cuello a hombro</span></label><input type="number" id="m-sh" value="12.5" step="0.1"></div>
+    <div class="input-group"><label id="lbl-n">Contorno de Cuello <span>Alrededor del cuello</span></label><input type="number" id="m-n" value="37" step="0.5"></div>
+    <div class="input-group"><label id="lbl-bah">Altura de Pecho <span>Del hombro al pezón</span></label><input type="number" id="m-bah" value="25" step="0.5"></div>
+    <div class="input-group"><label id="lbl-bs">Separación de Pecho <span>Distancia entre pezones</span></label><input type="number" id="m-bs" value="18" step="0.5"></div>
+
+    <h2 class="section-title" id="txt-sec-set" style="margin-top: 10px;">3. Perfiles de Medidas</h2>
+    <div style="display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 5px;">
+      <button class="btn-sec" onclick="saveToLocal()" id="txt-btn-save" style="flex: 1; padding: 4px;">Guardar</button>
+      <button class="btn-sec" onclick="loadFromLocal()" id="txt-btn-load" style="flex: 1; padding: 4px;">Cargar</button>
+      <button class="btn-sec" onclick="exportToFile()" id="txt-btn-export" style="flex: 1; padding: 4px;">Exportar</button>
+      <button class="btn-sec" onclick="document.getElementById('file-import').click()" id="txt-btn-import" style="flex: 1; padding: 4px;">Importar</button>
+      <input type="file" id="file-import" style="display:none" accept=".json" onchange="importFromFile(event)">
+    </div>
+
+    <button class="btn-primary" onclick="updateWorkspace()" id="txt-btn-update">Calcular y Dibujar Patrón</button>
+  </div>
+
+  <div id="workspace">
+    <div id="controls-bar">
+      <button class="btn-sec active" id="view-screen" onclick="setViewMode('screen')">Ver Patrón 2D</button>
+      <button class="btn-sec" id="view-3d" onclick="setViewMode('3d')">Ver Maniquí 3D</button>
+      <button class="btn-sec" id="view-tiled" onclick="setViewMode('tiled')">Ver Hojas Impresión</button>
+      <button class="btn-sec btn-print" onclick="triggerHardwarePrint()" id="txt-btn-print">Imprimir en hojas (Carta)</button>
+    </div>
+    <div id="canvas-container">
+      <div id="canvas-area"></div>
+      <div id="three-canvas-container">
+        <div class="v3d-controls">
+          <span id="txt-3d-mode">Modo:</span>
+          <button class="v3d-btn active" id="btn-v-mannequin" onclick="set3DViewMode('mannequin')">Cuerpo</button>
+          <button class="v3d-btn" id="btn-v-sewn" onclick="set3DViewMode('sewn')">Tela</button>
+          <button class="v3d-btn" id="btn-v-both" onclick="set3DViewMode('both')">Ambos</button>
+          <div style="width:1px; height:18px; background:#444; margin:0 5px;"></div>
+          <button class="v3d-action" onclick="zoom3D(0.4)" title="Zoom In">+</button>
+          <button class="v3d-action" onclick="zoom3D(-0.4)" title="Zoom Out">-</button>
+          <button class="v3d-action" onclick="reset3DZoom()" title="Reset View">⟲</button>
+          <div style="width:1px; height:18px; background:#444; margin:0 5px;"></div>
+          <button class="v3d-action" onclick="toggle3DFullscreen()" style="border-color:var(--rust); color:var(--rust);">⛶ Fullscreen</button>
+        </div>
+      </div>
+    </div>
+    <div id="calc-summary"></div>
+  </div>
+</main>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   LANGUAGE & LOCALIZATION
+   ═══════════════════════════════════════════════════ */
+const dict = {
+  en: {
+    title: "Advanced Pro Bodice Drafter & 3D Mannequin", sec1: "1. Girth Parameters (cm)", sec2: "2. Lengths & Proportions (cm)",
+    ub: "Upper Bust <span>Above full breast</span>", b: "Full Bust <span>Across nipple line</span>", und: "Under Bust <span>Underneath breast</span>",
+    w: "Waist <span>Natural narrow line</span>", h: "Hip <span>Fullest seat projection</span>", ntw: "Nape to Waist", ad: "Armhole Depth",
+    wth: "Waist to Hip", bw: "Back Width", sh: "Shoulder Length", n: "Neck Girth", bah: "Bust Point Height", bs: "Bust Point Span",
+    
+    sec_set: "3. Measurement Profiles", btn_save: "Save", btn_load: "Load", btn_export: "Export", btn_import: "Import",
+    
+    btn_update: "Compute & Draft Pattern", btn_print: "Print Document (US Letter)",
+    v_screen: "View 2D Pattern", v_3d: "View 3D Mannequin", v_tiled: "View Print Layout",
+    sum_w: "Total Pattern Width", sum_scye: "Armhole Width", sum_dart: "Shoulder Dart Span", sum_und: "Underbust Contouring"
+  },
+  es: {
+    title: "Patrones Base y Maniquí 3D", sec1: "1. Contornos (cm)", sec2: "2. Largos y Proporciones (cm)",
+    ub: "Pecho Superior <span>Por encima del pecho</span>", b: "Pecho (Busto) <span>Por la línea del pezón</span>", und: "Bajo Busto <span>Debajo del pecho</span>",
+    w: "Cintura <span>Parte más estrecha</span>", h: "Cadera <span>Parte más ancha (glúteos)</span>", ntw: "Largo de Espalda <span>De nuca a cintura</span>", ad: "Profundidad de Sisa <span>Del hombro a la axila</span>",
+    wth: "Largo de Cadera <span>Cintura a cadera</span>", bw: "Ancho de Espalda <span>Axila a axila (atrás)</span>", sh: "Largo de Hombro <span>Cuello a hombro</span>", n: "Contorno de Cuello <span>Alrededor del cuello</span>", bah: "Altura de Pecho <span>Del hombro al pezón</span>", bs: "Separación de Pecho <span>Distancia entre pezones</span>",
+    
+    sec_set: "3. Perfiles de Medidas", btn_save: "Guardar", btn_load: "Cargar", btn_export: "Exportar", btn_import: "Importar",
+
+    btn_update: "Calcular y Dibujar Patrón", btn_print: "Imprimir en hojas (Carta)",
+    v_screen: "Ver Patrón 2D", v_3d: "Ver Maniquí 3D", v_tiled: "Ver Hojas Impresión",
+    sum_w: "Ancho Total del Patrón", sum_scye: "Ancho de la Sisa", sum_dart: "Pinza del Hombro", sum_und: "Pinza de Bajo Busto"
+  }
+};
+let currentLang = 'es'; 
+
+function toggleLang() {
+  currentLang = currentLang === 'en' ? 'es' : 'en';
+  const lg = dict[currentLang];
+  document.getElementById('txt-title').innerText = lg.title;
+  document.getElementById('txt-sec1').innerText = lg.sec1;
+  document.getElementById('txt-sec2').innerText = lg.sec2;
+  document.getElementById('lbl-ub').innerHTML = lg.ub;
+  document.getElementById('lbl-b').innerHTML = lg.b;
+  document.getElementById('lbl-und').innerHTML = lg.und;
+  document.getElementById('lbl-w').innerHTML = lg.w;
+  document.getElementById('lbl-h').innerHTML = lg.h;
+  document.getElementById('lbl-ntw').innerHTML = lg.ntw;
+  document.getElementById('lbl-ad').innerHTML = lg.ad;
+  document.getElementById('lbl-wth').innerHTML = lg.wth;
+  document.getElementById('lbl-bw').innerHTML = lg.bw;
+  document.getElementById('lbl-sh').innerHTML = lg.sh;
+  document.getElementById('lbl-n').innerHTML = lg.n;
+  document.getElementById('lbl-bah').innerHTML = lg.bah;
+  document.getElementById('lbl-bs').innerHTML = lg.bs;
+  
+  document.getElementById('txt-sec-set').innerText = lg.sec_set;
+  document.getElementById('txt-btn-save').innerText = lg.btn_save;
+  document.getElementById('txt-btn-load').innerText = lg.btn_load;
+  document.getElementById('txt-btn-export').innerText = lg.btn_export;
+  document.getElementById('txt-btn-import').innerText = lg.btn_import;
+
+  document.getElementById('txt-btn-update').innerText = lg.btn_update;
+  document.getElementById('txt-btn-print').innerText = lg.btn_print;
+  document.getElementById('view-screen').innerText = lg.v_screen;
+  document.getElementById('view-3d').innerText = lg.v_3d;
+  document.getElementById('view-tiled').innerText = lg.v_tiled;
+  
+  if (currentLang === 'es') {
+      document.getElementById('txt-3d-mode').innerText = "Modo:";
+      document.getElementById('btn-v-mannequin').innerText = "Cuerpo";
+      document.getElementById('btn-v-sewn').innerText = "Tela";
+      document.getElementById('btn-v-both').innerText = "Ambos";
+  } else {
+      document.getElementById('txt-3d-mode').innerText = "Mode:";
+      document.getElementById('btn-v-mannequin').innerText = "Form";
+      document.getElementById('btn-v-sewn').innerText = "Sewn";
+      document.getElementById('btn-v-both').innerText = "Both";
+  }
+  updateWorkspace();
+}
+
+/* ═══════════════════════════════════════════════════
+   SAVE / LOAD / EXPORT / IMPORT LOGIC
+   ═══════════════════════════════════════════════════ */
+function getMeasurementsObj() {
+  return {
+    ub: document.getElementById('m-ub').value,
+    b: document.getElementById('m-b').value,
+    und: document.getElementById('m-und').value,
+    w: document.getElementById('m-w').value,
+    h: document.getElementById('m-h').value,
+    ntw: document.getElementById('m-ntw').value,
+    ad: document.getElementById('m-ad').value,
+    wth: document.getElementById('m-wth').value,
+    bw: document.getElementById('m-bw').value,
+    sh: document.getElementById('m-sh').value,
+    n: document.getElementById('m-n').value,
+    bah: document.getElementById('m-bah').value,
+    bs: document.getElementById('m-bs').value
+  };
+}
+
+function setMeasurementsObj(data) {
+  if(!data) return;
+  const fields = ['ub','b','und','w','h','ntw','ad','wth','bw','sh','n','bah','bs'];
+  fields.forEach(f => {
+    if(data[f]) document.getElementById('m-'+f).value = data[f];
+  });
+  updateWorkspace();
+}
+
+function saveToLocal() {
+  const data = getMeasurementsObj();
+  localStorage.setItem('bodiceMeasurements', JSON.stringify(data));
+  alert(currentLang === 'es' ? 'Medidas guardadas en el navegador.' : 'Measurements saved to browser.');
+}
+
+function loadFromLocal() {
+  const data = localStorage.getItem('bodiceMeasurements');
+  if(data) {
+    setMeasurementsObj(JSON.parse(data));
+  } else {
+    alert(currentLang === 'es' ? 'No hay medidas guardadas previamente.' : 'No saved measurements found.');
+  }
+}
+
+function exportToFile() {
+  const data = getMeasurementsObj();
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = "medidas_patron.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importFromFile(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      setMeasurementsObj(data);
+    } catch(err) {
+      alert(currentLang === 'es' ? 'Error al leer el archivo. Asegúrate de que sea un archivo .json válido.' : 'Error reading file.');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = ''; // reset input
+}
+
+
+/* ═══════════════════════════════════════════════════
+   MATHEMATICS & MEASUREMENTS
+   ═══════════════════════════════════════════════════ */
+function calcPatternMatrix() {
+  const m = getMeasurementsObj();
+  Object.keys(m).forEach(k => m[k] = parseFloat(m[k]));
+
+  const structuralEase = 4.0;
+  const B_ease = m.b + structuralEase; 
+  const totalFrameW = B_ease / 2; 
+  const backWidthCalc = (m.bw / 2) + 0.5; 
+  const bustDartWidth = Math.max(2.5, (m.b - m.ub) + 1.0); 
+  const armholeWidth = (B_ease / 8) + 1.5;
+  const frontChestLine_X = backWidthCalc + armholeWidth;
+
+  const lineNape = 0;
+  const lineArmhole = m.ad;
+  const lineBust = m.bah * 0.95; 
+  const lineUnderbust = m.ad + 11.0; 
+  const lineWaist = m.ntw;
+  const lineHip = m.ntw + m.wth;
+
+  const bNeckW = (m.n / 6) + 0.5;
+  const bNeckH = 2.0;
+  
+  // FIX 5: Caída de hombro trasero corregida (0.16 en vez de 0.22) para evitar exceso de tela en la nuca
+  const bShoulderY = lineArmhole * 0.16; 
+  const bShoulderX = backWidthCalc + 1.5;
+  const bShldDx = bShoulderX - bNeckW, bShldDy = bShoulderY - bNeckH;
+  const bShldDist = Math.sqrt(bShldDx*bShldDx + bShldDy*bShldDy);
+  const bShoulderPt = { x: bNeckW + (bShldDx / bShldDist)*m.sh, y: bNeckH + (bShldDy / bShldDist)*m.sh };
+
+  const bScyeBase = { x: backWidthCalc + (armholeWidth/2), y: lineArmhole };
+  const bSideWaist = { x: bScyeBase.x - 1.0, y: lineWaist };
+  
+  const fNeckOriginX = totalFrameW - bNeckW;
+  const fNeckTopY = lineNape + 1.5; 
+  const fApex = { x: totalFrameW - (m.bs / 2), y: m.bah };
+  
+  // FIX 6: Caída de hombro delantero suavizada (0.28 en vez de 0.35) para balancear y profundizar sisa
+  const fShoulderSlopeY = lineArmhole * 0.28;
+  const fShoulderEndX = frontChestLine_X - 1.0;
+  const fShoulderStart = {x:fNeckOriginX - (bustDartWidth*1.8), y:fNeckTopY - 0.4};
+
+  // FIX 4: Calcular retroceso de las pinzas para que terminen 2.5 cm antes del ápice del busto
+  const dMidX = (fNeckOriginX + fShoulderStart.x) / 2;
+  const dMidY = (fNeckTopY + fShoulderStart.y) / 2;
+  const vDx = dMidX - fApex.x;
+  const vDy = dMidY - fApex.y;
+  const vDist = Math.hypot(vDx, vDy) || 1;
+  const fDartTip = { x: fApex.x + (vDx / vDist) * 2.5, y: fApex.y + (vDy / vDist) * 2.5 };
+  const fWaistDartTip = { x: fApex.x, y: fApex.y + 2.5 };
+  
+  const uDartW = Math.max(2.0, ((B_ease - (m.und + 2.0)) / 2) * 0.45); 
+
+  return {
+    w: totalFrameW, 
+    h: lineHip + 15, 
+    m: m,
+    grid: { nape: lineNape, arm: lineArmhole, bust: lineBust, underbust: lineUnderbust, waist: lineWaist, hip: lineHip, xBackWidth: backWidthCalc, xFrontChest: frontChestLine_X },
+    back: {
+      neckNape: {x:0, y:lineNape}, neckSide: {x:bNeckW, y:bNeckH}, shoulder: bShoulderPt,
+      scyeIncline: {x:backWidthCalc, y:lineArmhole - (lineArmhole - bShoulderPt.y)*0.33},
+      scyeBase: bScyeBase, waistSide: bSideWaist, waistCenter: {x:0, y:lineWaist},
+      hipCenter: {x:0, y:lineHip}, hipSide: {x:bSideWaist.x + 0.5, y:lineHip},
+      dart: {cx: backWidthCalc * 0.55, w: 3.0}
+    },
+    front: {
+      neckTop: {x:fNeckOriginX, y:fNeckTopY}, neckCenter: {x:totalFrameW, y:fNeckTopY + bNeckW + 1.0},
+      apex: fApex, dartTip: fDartTip, waistDartTip: fWaistDartTip, dartWidth: bustDartWidth,
+      shoulderStart: fShoulderStart,
+      shoulderEnd: {x:fShoulderEndX, y:fShoulderSlopeY},
+      scyeBase: bScyeBase, waistSide: {x:bSideWaist.x + 0.5, y:lineWaist},
+      waistCenter: {x:totalFrameW, y:lineWaist + 1.0}, hipCenter: {x:totalFrameW, y:lineHip + 1.0},
+      hipSide: {x:bSideWaist.x + 1.0, y:lineHip},
+      uDartW: uDartW, wDartW: 2.5
+    }
+  };
+}
+
+/* ═══════════════════════════════════════════════════
+   2D RENDERING ENGINE (SVG) WITH GRAINLINES & NOTCHES
+   ═══════════════════════════════════════════════════ */
+function drawVectorPath(svg, d, color, width, fill = "none", dashArray = null) {
+  const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  p.setAttribute("d", d); p.setAttribute("stroke", color); p.setAttribute("stroke-width", width); p.setAttribute("fill", fill);
+  p.setAttribute("stroke-linecap", "round"); p.setAttribute("stroke-linejoin", "round");
+  if(dashArray) p.setAttribute("stroke-dasharray", dashArray);
+  svg.appendChild(p);
+}
+
+// FIX 2: Función auxiliar para dibujar la línea de hilo (Grainline)
+function drawGrainline(svg, x, yStart, yEnd, label) {
+  drawVectorPath(svg, `M ${x} ${yStart} L ${x} ${yEnd}`, "var(--ink)", 0.12);
+  drawVectorPath(svg, `M ${x-0.4} ${yStart+0.6} L ${x} ${yStart} L ${x+0.4} ${yStart+0.6}`, "var(--ink)", 0.12);
+  drawVectorPath(svg, `M ${x-0.4} ${yEnd-0.6} L ${x} ${yEnd} L ${x+0.4} ${yEnd-0.6}`, "var(--ink)", 0.12);
+  
+  const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  t.setAttribute("x", `${x + 0.35}`);
+  t.setAttribute("y", `${(yStart + yEnd) / 2}`);
+  t.setAttribute("fill", "var(--ink)");
+  t.setAttribute("font-size", "0.5");
+  t.setAttribute("font-family", "Space Grotesk");
+  t.setAttribute("transform", `rotate(90, ${x + 0.35}, ${(yStart + yEnd) / 2})`);
+  t.textContent = label;
+  svg.appendChild(t);
+}
+
+// FIX 3: Función auxiliar para dibujar piquetes técnicos (Notches)
+function drawNotch(svg, x, y, angleDeg, size = 0.45, color = "var(--ink)") {
+  const rad = angleDeg * Math.PI / 180;
+  const dx = Math.cos(rad) * size;
+  const dy = Math.sin(rad) * size;
+  drawVectorPath(svg, `M ${x - dx} ${y - dy} L ${x + dx} ${y + dy}`, color, 0.15);
+}
+
+function drawDimensionMark(svg, p1, p2, offsetDis, color = "var(--blue)") {
+  const dx = p2.x - p1.x; const dy = p2.y - p1.y;
+  const actualLen = Math.hypot(dx, dy);
+  if (actualLen < 0.8) return;
+
+  const mx = p1.x + dx / 2; const my = p1.y + dy / 2;
+  const nx = -dy / actualLen; const ny = dx / actualLen;
+  const tx = mx + nx * offsetDis; const ty = my + ny * offsetDis;
+
+  let rotAngle = Math.atan2(dy, dx) * (180 / Math.PI);
+  if (rotAngle > 90 || rotAngle < -90) rotAngle += 180;
+
+  const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  group.setAttribute("transform", `translate(${tx}, ${ty}) rotate(${rotAngle})`);
+
+  const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  txt.setAttribute("x", "0"); txt.setAttribute("y", "0"); txt.setAttribute("fill", color);
+  txt.setAttribute("font-size", "0.65"); txt.setAttribute("text-anchor", "middle");
+  txt.setAttribute("alignment-baseline", "middle"); txt.setAttribute("font-family", "Courier Prime, monospace");
+  txt.textContent = `${actualLen.toFixed(1)}cm`;
+
+  group.appendChild(txt);
+  svg.appendChild(group);
+}
+
+function drawTextLabel(svg, x, y, text, color) {
+  const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  t.setAttribute("x", x); t.setAttribute("y", y);
+  t.setAttribute("fill", color); t.setAttribute("font-size", "0.55");
+  t.setAttribute("font-family", "Space Grotesk"); t.setAttribute("font-weight", "600");
+  t.textContent = text;
+  svg.appendChild(t);
+}
+
+function processDraftLines(svg, pat) {
+  const b = pat.back; const f = pat.front; const g = pat.grid;
+
+  const gridLabels = ["NAPE LEVEL", "SCYE DEPTH LINE", "BUST LEVEL", "UNDERBUST SECTOR", "WAIST LINE", "HIP BASE"];
+  [g.nape, g.arm, g.bust, g.underbust, g.waist, g.hip].forEach((y, idx) => {
+    drawVectorPath(svg, `M 0 ${y} L ${pat.w} ${y}`, "var(--line-grid)", 0.08);
+    const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    txt.setAttribute("x", "0.5"); txt.setAttribute("y", `${y - 0.3}`); txt.setAttribute("fill", "var(--muted)");
+    txt.setAttribute("font-size", "0.5"); txt.setAttribute("font-family", "Space Grotesk");
+    txt.textContent = currentLang === 'es' ? ["NUCA","LÍNEA DE SISA","NIVEL DE PECHO","BAJO BUSTO","CINTURA","BASE DE CADERA"][idx] : gridLabels[idx];
+    svg.appendChild(txt);
+  });
+
+  // Sisa Trasera Cúbica (Back Armhole)
+  const bCp1X = b.scyeIncline.x;
+  const bCp1Y = b.scyeIncline.y;
+  const bCp2X = b.scyeIncline.x;
+  const bCp2Y = b.scyeBase.y;
+  const backArmholePath = `M ${b.shoulder.x} ${b.shoulder.y} C ${bCp1X} ${bCp1Y} ${bCp2X} ${bCp2Y} ${b.scyeBase.x} ${b.scyeBase.y}`;
+
+  // FIX 6: Controladores Bézier modificados (+0.8 y +0.4) para cavar más profundo la sisa delantera y balancearla
+  const fCp1X = g.xFrontChest + 0.8;
+  const fCp1Y = f.shoulderEnd.y + (f.scyeBase.y - f.shoulderEnd.y) * 0.25;
+  const fCp2X = g.xFrontChest + 0.4;
+  const fCp2Y = f.scyeBase.y;
+  const frontArmholePath = `M ${f.shoulderEnd.x} ${f.shoulderEnd.y} C ${fCp1X} ${fCp1Y} ${fCp2X} ${fCp2Y} ${f.scyeBase.x} ${f.scyeBase.y}`;
+
+  // BACK BLOCK TRACE
+  drawVectorPath(svg, `M ${b.neckNape.x} ${b.neckNape.y} L ${b.waistCenter.x} ${b.waistCenter.y} L ${b.hipCenter.x} ${b.hipCenter.y}`, "var(--c-back)", 0.18);
+  drawVectorPath(svg, `M ${b.neckNape.x} ${b.neckNape.y} Q ${b.neckSide.x * 0.4} ${b.neckNape.y} ${b.neckSide.x} ${b.neckSide.y}`, "var(--c-back)", 0.18);
+  drawVectorPath(svg, `M ${b.neckSide.x} ${b.neckSide.y} L ${b.shoulder.x} ${b.shoulder.y}`, "var(--c-back)", 0.18);
+  
+  drawVectorPath(svg, backArmholePath, "var(--c-back)", 0.18); 
+  
+  drawVectorPath(svg, `M ${b.scyeBase.x} ${b.scyeBase.y} L ${b.waistSide.x} ${b.waistSide.y} L ${b.hipSide.x} ${b.hipSide.y}`, "var(--c-back)", 0.18);
+  drawVectorPath(svg, `M ${b.hipCenter.x} ${b.hipCenter.y} L ${b.hipSide.x} ${b.hipSide.y}`, "var(--c-back)", 0.18);
+
+  drawDimensionMark(svg, b.neckNape, b.waistCenter, -0.9, "var(--c-back)");
+  drawDimensionMark(svg, b.waistCenter, b.hipCenter, -0.9, "var(--c-back)");
+  drawDimensionMark(svg, b.neckSide, b.shoulder, 0.7, "var(--c-back)");
+  drawDimensionMark(svg, b.scyeBase, b.waistSide, -0.8, "var(--c-back)");
+  drawDimensionMark(svg, b.waistSide, b.hipSide, -0.8, "var(--c-back)");
+
+  drawVectorPath(svg, `M ${b.dart.cx} ${g.arm + 3} L ${b.dart.cx - b.dart.w / 2} ${g.waist} L ${b.dart.cx} ${g.hip - 4} L ${b.dart.cx + b.dart.w / 2} ${g.waist} Z`, "var(--c-dart)", 0.1);
+
+  // FRONT BLOCK TRACE
+  drawVectorPath(svg, `M ${f.neckCenter.x} ${f.neckCenter.y} L ${f.waistCenter.x} ${f.waistCenter.y} L ${f.hipCenter.x} ${f.hipCenter.y}`, "var(--c-front)", 0.18);
+  drawVectorPath(svg, `M ${f.neckTop.x} ${f.neckTop.y} Q ${f.neckCenter.x} ${f.neckTop.y} ${f.neckCenter.x} ${f.neckCenter.y}`, "var(--c-front)", 0.18);
+  
+  // FIX 4: Las líneas de la pinza superior ahora van hacia f.dartTip (acortadas) en lugar de f.apex
+  drawVectorPath(svg, `M ${f.neckTop.x} ${f.neckTop.y} L ${f.dartTip.x} ${f.dartTip.y}`, "var(--c-dart)", 0.12);
+  drawVectorPath(svg, `M ${f.shoulderStart.x} ${f.shoulderStart.y} L ${f.dartTip.x} ${f.dartTip.y}`, "var(--c-dart)", 0.12);
+  
+  drawVectorPath(svg, `M ${f.shoulderStart.x} ${f.shoulderStart.y} L ${f.shoulderEnd.x} ${f.shoulderEnd.y}`, "var(--c-front)", 0.18);
+  drawVectorPath(svg, frontArmholePath, "var(--c-front)", 0.18); 
+  
+  drawVectorPath(svg, `M ${f.scyeBase.x} ${f.scyeBase.y} L ${f.waistSide.x} ${f.waistSide.y} L ${f.hipSide.x} ${f.hipSide.y}`, "var(--c-front)", 0.18);
+  drawVectorPath(svg, `M ${f.hipSide.x} ${f.hipSide.y} L ${f.hipCenter.x} ${f.hipCenter.y}`, "var(--c-front)", 0.18);
+
+  drawDimensionMark(svg, f.neckCenter, f.waistCenter, 0.9, "var(--c-front)");
+  drawDimensionMark(svg, f.waistCenter, f.hipCenter, 0.9, "var(--c-front)");
+  drawDimensionMark(svg, f.shoulderStart, f.shoulderEnd, 0.7, "var(--c-front)");
+  drawDimensionMark(svg, f.scyeBase, f.waistSide, 0.8, "var(--c-front)");
+  drawDimensionMark(svg, f.waistSide, f.hipSide, 0.8, "var(--c-front)");
+
+  // FIX 4: El contorno de la pinza de talle delantero inicia en f.waistDartTip (2.5cm por debajo del ápice real)
+  drawVectorPath(svg, `M ${f.waistDartTip.x} ${f.waistDartTip.y} L ${f.apex.x - f.uDartW / 2} ${g.underbust} L ${f.apex.x - f.wDartW / 2} ${g.waist} L ${f.apex.x} ${g.hip - 5} L ${f.apex.x + f.wDartW / 2} ${g.waist} L ${f.apex.x + f.uDartW / 2} ${g.underbust} Z`, "var(--c-dart)", 0.12, "rgba(214, 40, 40, 0.02)");
+  
+  // FIX 4: Dibujar una cruz técnica de precisión para marcar claramente el ápice real del busto (Bust Apex)
+  drawVectorPath(svg, `M ${f.apex.x - 0.6} ${f.apex.y} L ${f.apex.x + 0.6} ${f.apex.y}`, "var(--c-dart)", 0.12);
+  drawVectorPath(svg, `M ${f.apex.x} ${f.apex.y - 0.6} L ${f.apex.x} ${f.apex.y + 0.6}`, "var(--c-dart)", 0.12);
+  const apexCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  apexCircle.setAttribute("cx", f.apex.x); apexCircle.setAttribute("cy", f.apex.y); apexCircle.setAttribute("r", "0.2");
+  apexCircle.setAttribute("fill", "none"); apexCircle.setAttribute("stroke", "var(--c-dart)"); apexCircle.setAttribute("stroke-width", "0.08");
+  svg.appendChild(apexCircle);
+
+  // FIX 2: Renderizar las líneas de hilo (Grainlines) oficiales paralelas a los centros
+  drawGrainline(svg, b.dart.cx - 2.5, g.arm + 2, g.waist - 2, currentLang === 'es' ? "HILO DE LA TELA" : "GRAINLINE");
+  drawGrainline(svg, f.apex.x + 3.5, g.arm + 2, g.waist - 2, currentLang === 'es' ? "HILO DE LA TELA" : "GRAINLINE");
+
+  // FIX 3: Renderizar piquetes (Notches) técnicos de ensamble
+  drawNotch(svg, b.scyeIncline.x, b.scyeIncline.y, 0); // Piquete sisa espalda
+  drawNotch(svg, g.xFrontChest + 0.5, f.shoulderEnd.y + (f.scyeBase.y - f.shoulderEnd.y) * 0.35, 0); // Piquete sisa delantera
+  drawNotch(svg, (b.neckSide.x + b.shoulder.x)/2, (b.neckSide.y + b.shoulder.y)/2, 90); // Piquete hombro trasero
+  drawNotch(svg, (f.shoulderStart.x + f.shoulderEnd.x)/2, (f.shoulderStart.y + f.shoulderEnd.y)/2, 90); // Piquete hombro delantero
+  drawNotch(svg, b.dart.cx - b.dart.w / 2, g.waist, 90); // Pierna de pinza trasera izq
+  drawNotch(svg, b.dart.cx + b.dart.w / 2, g.waist, 90); // Pierna de pinza trasera der
+  drawNotch(svg, f.apex.x - f.wDartW / 2, g.waist, 90); // Pierna de pinza delantera izq
+  drawNotch(svg, f.apex.x + f.wDartW / 2, g.waist, 90); // Pierna de pinza delantera der
+  drawNotch(svg, 0, g.waist, 0); // Piquete centro espalda cintura
+  drawNotch(svg, pat.w, g.waist, 0); // Piquete centro delantero cintura
+
+  // VISTAS INTERNAS DIBUJADAS EN EL PATRÓN (LÍNEA PUNTEADA)
+  const vCol = "var(--c-vista)";
+  drawVectorPath(svg, `M ${b.hipCenter.x} ${b.hipCenter.y - 4} L ${b.hipSide.x} ${b.hipSide.y - 4}`, vCol, 0.12, "none", "0.4, 0.4");
+  drawVectorPath(svg, `M ${f.hipSide.x} ${f.hipSide.y - 4} L ${f.hipCenter.x} ${f.hipCenter.y - 4}`, vCol, 0.12, "none", "0.4, 0.4");
+  drawVectorPath(svg, `M ${b.neckNape.x} ${b.neckNape.y + 4} Q ${b.neckSide.x*0.6} ${b.neckNape.y + 4} ${b.neckSide.x + 1.2} ${b.neckSide.y + 2}`, vCol, 0.12, "none", "0.4, 0.4");
+  drawVectorPath(svg, `M ${f.neckTop.x - 1.2} ${f.neckTop.y + 2.5} Q ${f.neckCenter.x} ${f.neckTop.y + 4} ${f.neckCenter.x} ${f.neckCenter.y + 4}`, vCol, 0.12, "none", "0.4, 0.4");
+  drawVectorPath(svg, `M ${b.shoulder.x - 2} ${b.shoulder.y + 2.5} C ${bCp1X - 2} ${bCp1Y} ${bCp2X - 2} ${bCp2Y} ${b.scyeBase.x - 2.5} ${b.scyeBase.y}`, vCol, 0.12, "none", "0.4, 0.4");
+  drawVectorPath(svg, `M ${f.shoulderEnd.x + 2} ${f.shoulderEnd.y + 2.5} C ${fCp1X + 2} ${fCp1Y} ${fCp2X + 2} ${fCp2Y} ${f.scyeBase.x + 2.5} ${f.scyeBase.y}`, vCol, 0.12, "none", "0.4, 0.4");
+
+  // VISTAS INDEPENDIENTES AISLADAS (INSERTS) EN NUEVA PÁGINA
+  const vFill = "rgba(44, 160, 44, 0.08)";
+  const fY = pat.grid.hip + 4; 
+  let fX = 2;
+
+  drawTextLabel(svg, fX, fY - 0.5, currentLang==='es'?"VISTA CUELLO TRAS.":"BACK NECK FACING", vCol);
+  drawVectorPath(svg, `M ${fX} ${fY} Q ${fX + b.neckSide.x*0.4} ${fY} ${fX + b.neckSide.x} ${fY + b.neckSide.y} L ${fX + b.neckSide.x + 2} ${fY + b.neckSide.y + 2} Q ${fX + b.neckSide.x*0.4} ${fY + 4} ${fX} ${fY + 4} Z`, vCol, 0.15, vFill);
+  fX += b.neckSide.x + 4;
+
+  drawTextLabel(svg, fX, fY - 0.5, currentLang==='es'?"VISTA CUELLO DEL.":"FRONT NECK FACING", vCol);
+  const fnW = f.neckCenter.x - f.neckTop.x;
+  const fnH = f.neckCenter.y - f.neckTop.y;
+  drawVectorPath(svg, `M ${fX} ${fY} Q ${fX + fnW} ${fY} ${fX + fnW} ${fY + fnH} L ${fX + fnW - 4} ${fY + fnH} Q ${fX + fnW - 4} ${fY + 4} ${fX} ${fY + 4} Z`, vCol, 0.15, vFill);
+  fX += fnW + 4;
+
+  drawTextLabel(svg, fX, fY - 0.5, currentLang==='es'?"VISTA SISA TRAS.":"BACK ARMHOLE", vCol);
+  let dX = fX - b.shoulder.x; let dY = fY - b.shoulder.y;
+  drawVectorPath(svg, `M ${b.shoulder.x + dX} ${b.shoulder.y + dY} C ${bCp1X + dX} ${bCp1Y + dY} ${bCp2X + dX} ${bCp2Y + dY} ${b.scyeBase.x + dX} ${b.scyeBase.y + dY} L ${b.scyeBase.x + dX - 3} ${b.scyeBase.y + dY + 1} C ${bCp2X + dX - 3} ${bCp2Y + dY} ${bCp1X + dX - 3} ${bCp1Y + dY} ${b.shoulder.x + dX - 3} ${b.shoulder.y + dY + 2} Z`, vCol, 0.15, vFill);
+  fX += (b.scyeBase.x - b.shoulder.x) + 5;
+
+  drawTextLabel(svg, fX, fY - 0.5, currentLang==='es'?"VISTA SISA DEL.":"FRONT ARMHOLE", vCol);
+  dX = fX - f.scyeBase.x; dY = fY - f.shoulderEnd.y;
+  drawVectorPath(svg, `M ${f.shoulderEnd.x + dX} ${f.shoulderEnd.y + dY} C ${fCp1X + dX} ${fCp1Y + dY} ${fCp2X + dX} ${fCp2Y + dY} ${f.scyeBase.x + dX} ${f.scyeBase.y + dY} L ${f.scyeBase.x + dX + 3} ${f.scyeBase.y + dY + 1} C ${fCp2X + dX + 3} ${fCp2Y + dY} ${fCp1X + dX + 3} ${fCp1Y + dY} ${f.shoulderEnd.x + dX + 3} ${f.shoulderEnd.y + dY + 2} Z`, vCol, 0.15, vFill);
+  fX += (f.shoulderEnd.x - f.scyeBase.x) + 5;
+
+  drawTextLabel(svg, fX, fY - 0.5, currentLang==='es'?"DOBLADILLOS BASE":"HEM FACINGS", vCol);
+  const bhW = b.hipSide.x - b.hipCenter.x;
+  drawVectorPath(svg, `M ${fX} ${fY} L ${fX + bhW} ${fY} L ${fX + bhW} ${fY + 4} L ${fX} ${fY + 4} Z`, vCol, 0.15, vFill);
+  fX += bhW + 1;
+  const fhW = f.hipCenter.x - f.hipSide.x;
+  drawVectorPath(svg, `M ${fX} ${fY} L ${fX + fhW} ${fY} L ${fX + fhW} ${fY + 4} L ${fX} ${fY + 4} Z`, vCol, 0.15, vFill);
+}
+
+/* ═══════════════════════════════════════════════════
+   WORKSPACE & UI MANAGERS
+   ═══════════════════════════════════════════════════ */
+let currentViewMode = 'screen'; 
+const DISPLAY_MULTIPLIER = 14; 
+
+function setViewMode(mode) {
+  currentViewMode = mode;
+  document.querySelectorAll('#controls-bar .btn-sec').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + mode).classList.add('active');
+  
+  document.getElementById('canvas-area').style.display = (mode === '3d') ? 'none' : 'block';
+  document.getElementById('three-canvas-container').style.display = (mode === '3d') ? 'block' : 'none';
+
+  updateWorkspace();
+}
+
+function updateWorkspace() {
+  const pat = calcPatternMatrix();
+  renderSummaryData(pat);
+
+  if (currentViewMode === '3d') {
+    renderMannequinMesh(pat);
+  } else if (currentViewMode === 'screen') {
+    generateInteractiveCanvas(pat);
+  } else {
+    generateTiledDocument(pat);
+  }
+}
+
+function renderSummaryData(pat) {
+  const box = document.getElementById('calc-summary');
+  const lg = dict[currentLang];
+  box.innerHTML = `
+    <div class="calc-box"><div>${lg.sum_w}</div><div>${pat.w.toFixed(1)} cm</div></div>
+    <div class="calc-box"><div>${lg.sum_scye}</div><div>${((pat.w / 4) + 1.5).toFixed(1)} cm</div></div>
+    <div class="calc-box"><div>${lg.sum_dart}</div><div>${pat.front.dartWidth.toFixed(1)} cm</div></div>
+    <div class="calc-box"><div>${lg.sum_und}</div><div>${pat.front.uDartW.toFixed(1)} cm</div></div>
+  `;
+}
+
+function generateInteractiveCanvas(pat) {
+  const container = document.getElementById('canvas-area');
+  container.innerHTML = '';
+  container.className = '';
+  container.style.background = "white";
+
+  const pad = 4;
+  const totalW = pat.w + (pad * 2);
+  const totalH = pat.h + (pad * 2);
+
+  container.style.width = (totalW * DISPLAY_MULTIPLIER) + "px";
+  container.style.height = (totalH * DISPLAY_MULTIPLIER) + "px";
+
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("width", "100%"); svg.setAttribute("height", "100%");
+  svg.setAttribute("viewBox", `${-pad} ${-pad} ${totalW} ${totalH}`);
+  
+  processDraftLines(svg, pat);
+  container.appendChild(svg);
+}
+
+function generateTiledDocument(pat) {
+  const container = document.getElementById('canvas-area');
+  container.innerHTML = '';
+  container.className = '';
+  container.style.width = 'auto'; container.style.height = 'auto';
+  container.style.background = 'transparent';
+
+  const pW_cm = 21.59; const pH_cm = 27.94; 
+  const separationMargin = 1.8;
+  const workingGridW = pW_cm - separationMargin;
+  const workingGridH = pH_cm - separationMargin;
+
+  const neededColumns = Math.ceil(pat.w / workingGridW);
+  const neededRows = Math.ceil(pat.h / workingGridH);
+
+  for (let r = 0; r < neededRows; r++) {
+    for (let c = 0; c < neededColumns; c++) {
+      const outerPage = document.createElement("div");
+      outerPage.className = "print-page print-page-preview";
+
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("width", `${pW_cm}cm`); svg.setAttribute("height", `${pH_cm}cm`);
+      
+      const calcXShift = (c * workingGridW) - (separationMargin / 2);
+      const calcYShift = (r * workingGridH) - (separationMargin / 2);
+      svg.setAttribute("viewBox", `${calcXShift} ${calcYShift} ${pW_cm} ${pH_cm}`);
+
+      processDraftLines(svg, pat);
+
+      const xL = c * workingGridW, yT = r * workingGridH;
+      const xR = xL + workingGridW, yB = yT + workingGridH;
+      const marks = [{x:xL, y:yT}, {x:xR, y:yT}, {x:xL, y:yB}, {x:xR, y:yB}];
+      marks.forEach(m => {
+        drawVectorPath(svg, `M ${m.x-0.8} ${m.y} L ${m.x+0.8} ${m.y} M ${m.x} ${m.y-0.8} L ${m.x} ${m.y+0.8}`, "black", 0.05);
+      });
+
+      const rectX = calcXShift + 1.5; const rectY = calcYShift + 1.5;
+      drawVectorPath(svg, `M ${rectX} ${rectY} h 5 v 5 h -5 Z`, "black", 0.08, "none");
+      
+      const txtScale = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      txtScale.setAttribute("x", `${rectX + 2.5}`); txtScale.setAttribute("y", `${rectY + 2.2}`);
+      txtScale.setAttribute("fill", "black"); txtScale.setAttribute("font-size", "0.55");
+      txtScale.setAttribute("text-anchor", "middle"); txtScale.setAttribute("font-family", "Courier Prime, monospace");
+      txtScale.textContent = "5x5 cm";
+      svg.appendChild(txtScale);
+
+      const txtPage = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      txtPage.setAttribute("x", `${rectX + 2.5}`); txtPage.setAttribute("y", `${rectY + 3.4}`);
+      txtPage.setAttribute("fill", "var(--rust)"); txtPage.setAttribute("font-size", "0.45");
+      txtPage.setAttribute("text-anchor", "middle"); txtPage.setAttribute("font-family", "Space Grotesk");
+      txtPage.textContent = `COL:${c+1} ROW:${r+1}`;
+      svg.appendChild(txtPage);
+
+      outerPage.appendChild(svg);
+      container.appendChild(outerPage);
+    }
+  }
+}
+
+function triggerHardwarePrint() {
+  const pat = calcPatternMatrix();
+  generateTiledDocument(pat);
+  setTimeout(() => { window.print(); }, 400);
+}
+
+/* ═══════════════════════════════════════════════════
+   3D ADVANCED FEMALE MANNEQUIN & SEWN ENGINE
+   ═══════════════════════════════════════════════════ */
+let tScene, tCamera, tRenderer, tMannequinMesh;
+let active3DMode = 'mannequin'; 
+
+function set3DViewMode(mode) {
+  active3DMode = mode;
+  document.querySelectorAll('.v3d-btn').forEach(btn => btn.classList.remove('active'));
+  document.getElementById('btn-v-' + mode).classList.add('active');
+  updateWorkspace();
+}
+
+function zoom3D(delta) {
+  if (!tCamera) return;
+  tCamera.position.z = Math.max(15, Math.min(100, tCamera.position.z - (delta * 20)));
+}
+
+function reset3DZoom() {
+  if (!tCamera) return;
+  tCamera.position.set(0, 12, 55);
+  if (tMannequinMesh) tMannequinMesh.rotation.set(0, 0, 0);
+}
+
+function toggle3DFullscreen() {
+  const container = document.getElementById('three-canvas-container');
+  if (!document.fullscreenElement) {
+    container.requestFullscreen().catch(err => console.log(err));
+  } else {
+    document.exitFullscreen();
+  }
+}
+
+document.addEventListener('fullscreenchange', () => {
+  if (!tRenderer || !tCamera) return;
+  const container = document.getElementById('three-canvas-container');
+  if (document.fullscreenElement) {
+    tRenderer.setSize(window.innerWidth, window.innerHeight);
+    tCamera.aspect = window.innerWidth / window.innerHeight;
+  } else {
+    tRenderer.setSize(container.clientWidth, container.clientHeight);
+    tCamera.aspect = container.clientWidth / container.clientHeight;
+  }
+  tCamera.updateProjectionMatrix();
+});
+
+function initializeThreeEngine() {
+  const tWrapper = document.getElementById('three-canvas-container');
+  const existingCanvas = tWrapper.querySelector('canvas');
+  if(existingCanvas) existingCanvas.remove();
+
+  tScene = new THREE.Scene();
+  tScene.background = new THREE.Color(0x131518);
+
+  tCamera = new THREE.PerspectiveCamera(40, tWrapper.clientWidth / tWrapper.clientHeight, 0.1, 1000);
+  tCamera.position.set(0, 12, 55);
+
+  tRenderer = new THREE.WebGLRenderer({ antialias: true });
+  tRenderer.setSize(tWrapper.clientWidth, tWrapper.clientHeight);
+  tRenderer.shadowMap.enabled = true;
+  
+  tWrapper.insertBefore(tRenderer.domElement, tWrapper.firstChild);
+
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+  tScene.add(ambientLight);
+
+  const keyLight = new THREE.DirectionalLight(0xfff6ec, 0.65);
+  keyLight.position.set(25, 40, 35);
+  tScene.add(keyLight);
+
+  const rimLight = new THREE.DirectionalLight(0x90b0ff, 0.35);
+  rimLight.position.set(-25, 15, -20);
+  tScene.add(rimLight);
+
+  let userIsDragging = false, pastPointerX = 0, pastPointerY = 0;
+  tRenderer.domElement.addEventListener('pointerdown', e => { userIsDragging = true; pastPointerX = e.clientX; pastPointerY = e.clientY; });
+  window.addEventListener('pointerup', () => userIsDragging = false);
+  tRenderer.domElement.addEventListener('pointermove', e => {
+    if (!userIsDragging || !tMannequinMesh) return;
+    const deltaX = e.clientX - pastPointerX;
+    const deltaY = e.clientY - pastPointerY;
+    tMannequinMesh.rotation.y += deltaX * 0.006;
+    tMannequinMesh.rotation.x += deltaY * 0.004;
+    pastPointerX = e.clientX; pastPointerY = e.clientY;
+  });
+
+  function executeRenderLoop() {
+    requestAnimationFrame(executeRenderLoop);
+    if (tMannequinMesh && !userIsDragging) {
+      tMannequinMesh.rotation.y += 0.003; 
+    }
+    tRenderer.render(tScene, tCamera);
+  }
+  executeRenderLoop();
+}
+
+function renderMannequinMesh(pat) {
+  if (!tScene) initializeThreeEngine();
+  if (tMannequinMesh) tScene.remove(tMannequinMesh);
+
+  tMannequinMesh = new THREE.Group();
+
+  const segmentsY = 70; 
+  const segmentsRadial = 60;
+  const H = pat.grid.hip; 
+  
+  function getMannequinProfile(pctY, angleRad) {
+    const pHip = 0.0;
+    const pWaist = (H - pat.grid.waist) / H;
+    const pUnderbust = (H - pat.grid.underbust) / H;
+    const pBust = (H - pat.grid.bust) / H;
+    const pShoulders = (H - pat.grid.arm) / H;
+    const pNeck = 1.0;
+
+    // FIX 7: Corrección de las propiedades de 'pat.m' de ThreeJS mapeadas a las claves reales del input (h, w, und, b, n, bw, bs)
+    const rHip = (pat.m.h) / (2 * Math.PI);
+    const rWaist = (pat.m.w) / (2 * Math.PI);
+    const rUnderbust = (pat.m.und) / (2 * Math.PI);
+    const rBust = (pat.m.b) / (2 * Math.PI);
+    const rNeck = pat.m.n / (2 * Math.PI);
+    const rShoulders = (pat.m.bw * 1.05) / 2;
+
+    let baseW = 0, baseD = 0;
+
+    if (pctY <= pWaist) {
+      let t = (pctY - pHip) / (pWaist - pHip);
+      let ts = t * t * (3 - 2 * t);
+      baseW = THREE.MathUtils.lerp(rHip * 1.15, rWaist * 1.12, ts);
+      baseD = THREE.MathUtils.lerp(rHip * 0.90, rWaist * 0.78, ts);
+    } else if (pctY <= pWaist) {
+      // Clamping logic safety check
+    } else if (pctY <= pUnderbust) {
+      let t = (pctY - pWaist) / (pUnderbust - pWaist);
+      let ts = t * t * (3 - 2 * t);
+      baseW = THREE.MathUtils.lerp(rWaist * 1.12, rUnderbust * 1.14, ts);
+      baseD = THREE.MathUtils.lerp(rWaist * 0.78, rUnderbust * 0.80, ts);
+    } else if (pctY <= pBust) {
+      let t = (pctY - pUnderbust) / (pBust - pUnderbust);
+      let ts = t * t * (3 - 2 * t);
+      baseW = THREE.MathUtils.lerp(rUnderbust * 1.14, rBust * 1.10, ts);
+      baseD = THREE.MathUtils.lerp(rUnderbust * 0.80, rBust * 0.82, ts);
+    } else if (pctY <= pShoulders) {
+      let t = (pctY - pBust) / (pShoulders - pBust);
+      let ts = t * t * (3 - 2 * t);
+      baseW = THREE.MathUtils.lerp(rBust * 1.10, rShoulders, ts);
+      baseD = THREE.MathUtils.lerp(rBust * 0.82, rNeck * 1.35, ts);
+    } else {
+      let t = (pctY - pShoulders) / (pNeck - pShoulders);
+      let ts = t * t * (3 - 2 * t);
+      baseW = THREE.MathUtils.lerp(rShoulders, rNeck * 0.95, ts);
+      baseD = THREE.MathUtils.lerp(rNeck * 1.35, rNeck * 0.88, ts);
+    }
+
+    if (Math.sin(angleRad) > 0) {
+      let angleFromCenter = angleRad - Math.PI / 2; 
+      let halfSpanAngle = (pat.m.bs / 2.1) / rBust;
+      let distToLeftApex = Math.abs(angleFromCenter - halfSpanAngle);
+      let distToRightApex = Math.abs(angleFromCenter + halfSpanAngle);
+      let breastFactorL = Math.exp(-Math.pow(distToLeftApex / 0.40, 2));
+      let breastFactorR = Math.exp(-Math.pow(distToRightApex / 0.40, 2));
+      let bustEnvelopeY = Math.exp(-Math.pow((pctY - pBust) / 0.09, 2));
+      let depthProjection = (breastFactorL + breastFactorR) * (pat.m.b - pat.m.und) * 0.42;
+      
+      baseD += depthProjection * bustEnvelopeY * Math.cos(angleFromCenter);
+      baseW += depthProjection * 0.12 * bustEnvelopeY * Math.sin(Math.abs(angleFromCenter));
+    }
+
+    if (Math.sin(angleRad) < 0 && pctY < pWaist) {
+      let angleFromBack = angleRad - (3 * Math.PI / 2);
+      let buttEnvelopeY = Math.exp(-Math.pow((pctY - pHip) / 0.28, 2));
+      let buttProj = Math.exp(-Math.pow(angleFromBack / 0.55, 2)) * (pat.m.h - pat.m.w) * 0.16;
+      baseD += buttProj * buttEnvelopeY;
+    }
+    return { w: baseW, d: baseD };
+  }
+
+  // CORE MANNEQUIN
+  if (active3DMode === 'mannequin' || active3DMode === 'both') {
+    const geoM = new THREE.CylinderGeometry(1, 1, H, segmentsRadial, segmentsY, true);
+    const posM = geoM.attributes.position;
+    for (let i = 0; i < posM.count; i++) {
+      let lx = posM.getX(i), ly = posM.getY(i), lz = posM.getZ(i);
+      const ang = Math.atan2(lz, lx);
+      const pctY = (ly + (H / 2)) / H;
+      const p = getMannequinProfile(pctY, ang);
+      posM.setXYZ(i, Math.cos(ang)*p.w, ly, Math.sin(ang)*p.d);
+    }
+    geoM.computeVertexNormals();
+    
+    const col = active3DMode === 'both' ? 0x6b6357 : 0xe3dac9;
+    const matM = new THREE.MeshStandardMaterial({ color: col, roughness: 0.5, side: THREE.DoubleSide });
+    tMannequinMesh.add(new THREE.Mesh(geoM, matM));
+
+    const ironMaterial = new THREE.MeshStandardMaterial({ color: 0x222428, roughness: 0.6 });
+    const rodMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, H * 1.5, 16), ironMaterial);
+    rodMesh.position.y = -H * 0.9; tMannequinMesh.add(rodMesh);
+    const baseMesh = new THREE.Mesh(new THREE.CylinderGeometry(7, 7.5, 1.2, 32), ironMaterial);
+    baseMesh.position.y = -H * 1.65; tMannequinMesh.add(baseMesh);
+
+    // Líneas guías métricas del cuerpo
+    [ {hPct: (H-pat.grid.arm)/H, col: 0x2a52be}, {hPct: (H-pat.grid.bust)/H, col: 0xd62828}, 
+      {hPct: (H-pat.grid.underbust)/H, col: 0xc44d25}, {hPct: (H-pat.grid.waist)/H, col: 0xc28e2b}
+    ].forEach(rg => {
+      const points = [];
+      for (let s = 0; s <= 64; s++) {
+        let angle = (s / 64) * Math.PI * 2;
+        let profile = getMannequinProfile(rg.hPct, angle);
+        points.push(new THREE.Vector3(Math.cos(angle)*profile.w, -(H/2)+(H*rg.hPct)+0.02, Math.sin(angle)*profile.d));
+      }
+      const ringGeo = new THREE.BufferGeometry().setFromPoints(points);
+      tMannequinMesh.add(new THREE.Line(ringGeo, new THREE.LineBasicMaterial({ color: rg.col, linewidth: 2 })));
+    });
+  }
+
+  // SEWN GARMENT & FACING INSERTS
+  if (active3DMode === 'sewn' || active3DMode === 'both') {
+    const geoS = new THREE.CylinderGeometry(1, 1, H, segmentsRadial, segmentsY, true);
+    const posS = geoS.attributes.position;
+    for (let i = 0; i < posS.count; i++) {
+      let lx = posS.getX(i), ly = posS.getY(i), lz = posS.getZ(i);
+      const ang = Math.atan2(lz, lx);
+      const pctY = (ly + (H / 2)) / H;
+      const p = getMannequinProfile(pctY, ang);
+      let offset = active3DMode === 'both' ? 1.02 : 1.0; 
+      posS.setXYZ(i, Math.cos(ang)*(p.w*offset), ly, Math.sin(ang)*(p.d*offset));
+    }
+    geoS.computeVertexNormals();
+
+    const matS = new THREE.MeshStandardMaterial({ 
+      color: 0xf4f0e6, roughness: 0.8, metalness: 0.1, side: THREE.DoubleSide,
+      transparent: active3DMode === 'both', opacity: active3DMode === 'both' ? 0.85 : 1.0
+    });
+    tMannequinMesh.add(new THREE.Mesh(geoS, matS));
+
+    const seams = [0, Math.PI, Math.PI/2, -Math.PI/2];
+    seams.forEach(ang => {
+      const pts = [];
+      for(let y=0; y<=20; y++) {
+        const pctY = y/20;
+        const p = getMannequinProfile(pctY, ang);
+        let offset = active3DMode === 'both' ? 1.025 : 1.005; 
+        pts.push(new THREE.Vector3(Math.cos(ang)*(p.w*offset), -(H/2)+(H*pctY), Math.sin(ang)*(p.d*offset)));
+      }
+      const tubeGeo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 20, 0.12, 5, false);
+      tMannequinMesh.add(new THREE.Mesh(tubeGeo, new THREE.MeshBasicMaterial({color: 0x4a433a})));
+    });
+
+    const facingMat = new THREE.MeshStandardMaterial({color: 0x2ca02c, roughness: 0.8});
+    
+    const neckPts = [];
+    for(let i=0; i<=40; i++) {
+        let theta = (i/40) * Math.PI * 2;
+        let p = getMannequinProfile(1.0, theta);
+        let off = active3DMode === 'both' ? 1.03 : 1.01;
+        neckPts.push(new THREE.Vector3(Math.cos(theta)*p.w*off, (H/2), Math.sin(theta)*p.d*off));
+    }
+    tMannequinMesh.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(neckPts, true), 40, 0.4, 6, true), facingMat));
+
+    const hemPts = [];
+    for(let i=0; i<=40; i++) {
+        let theta = (i/40) * Math.PI * 2;
+        let p = getMannequinProfile(0.0, theta);
+        let off = active3DMode === 'both' ? 1.03 : 1.01;
+        hemPts.push(new THREE.Vector3(Math.cos(theta)*p.w*off, -(H/2), Math.sin(theta)*p.d*off));
+    }
+    tMannequinMesh.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(hemPts, true), 40, 0.4, 6, true), facingMat));
+
+    const pShoulders = (H - pat.grid.arm) / H;
+    const pScye = (H - pat.grid.bust) / H;
+    function createArmholeFacing(isRightSide) {
+        const pts = [];
+        const steps = 40;
+        for(let i=0; i<=steps; i++) {
+            let t = i / steps; 
+            let sideBaseAngle = isRightSide ? 0 : Math.PI;
+            
+            let angleShift = (0.5 - t) * (Math.PI * 0.45);
+            if (!isRightSide) angleShift = -angleShift; 
+            
+            let theta = sideBaseAngle + angleShift;
+            let u = Math.sin(t * Math.PI); 
+            let pctY = pShoulders + (pScye - pShoulders) * u;
+            
+            let p = getMannequinProfile(pctY, theta);
+            let scoop = 1.0 - (u * 0.08); 
+            
+            let off = active3DMode === 'both' ? 1.03 : 1.01;
+            pts.push(new THREE.Vector3(Math.cos(theta)*p.w*off*scoop, -(H/2)+(H*pctY), Math.sin(theta)*p.d*off*scoop));
+        }
+        tMannequinMesh.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false), 40, 0.35, 6, false), facingMat));
+    }
+    createArmholeFacing(true); 
+    createArmholeFacing(false);
+  }
+
+  tMannequinMesh.position.y = 4;
+  tScene.add(tMannequinMesh);
+}
+
+toggleLang(); 
+</script>
+</body>
+</html>
