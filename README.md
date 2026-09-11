@@ -118,33 +118,7 @@ Depending on the implementation, measurements can determine:
 
 The resulting geometry is rendered in the application's visualization system.
 
-## 📁 Suggested Project Structure
 
-```text
-advanced-pro-bodice-drafter/
-│
-├── index.html
-├── README.md
-│
-├── css/
-│   └── styles.css
-│
-├── js/
-│   ├── app.js
-│   ├── measurements.js
-│   ├── pattern.js
-│   ├── mannequin.js
-│   └── print.js
-│
-├── assets/
-│   ├── icons/
-│   └── images/
-│
-└── docs/
-    └── screenshots/
-```
-
-> Adjust this structure to match the actual project files.
 
 ## 🚀 Getting Started
 
